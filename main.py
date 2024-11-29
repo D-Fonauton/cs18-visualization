@@ -1,22 +1,28 @@
 import os
 import json
 from tkinter import Tk, Label, Button, filedialog, Frame, Canvas
-from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.animation import FuncAnimation
+import time
+
+from utils import reach_milestone
+from parameters import SUBJECT_NUMBER
 
 class GazeVisualizer:
     def __init__(self, root: Tk):
         self.root = root
-        self.root.title("扫视轨迹可视化")
+        self.root.title("Gaze Visualizer")
 
-        # 主界面布局
-        self.type_frame = Frame(root)
-        self.type_frame.pack(side="left", fill="y")
+        # main frame
+        self.condition_frame = Frame(root)
+        self.condition_frame.pack(side="left", fill="y")
 
         self.object_frame = Frame(root)
         self.object_frame.pack(side="left", fill="y")
+
+        self.subject_frame = Frame(root)
+        self.subject_frame.pack(side="left", fill="y")
 
         self.display_frame = Frame(root)
         self.display_frame.pack(side="right", expand=True, fill="both")
@@ -27,27 +33,37 @@ class GazeVisualizer:
         self.canvas = Canvas(self.display_frame)
         self.canvas.pack(fill="both", expand=True)
 
-        # 数据
+
+        Button(root, text="load data", width=15, command=self.load_data).pack()
+        Button(root, text="previous image", width=15, command=self.previous_image).pack()
+        Button(root, text="next image", width=15, command=self.next_image).pack()
+        Button(root, text="previous subject", width=15, command=self.previous_subject).pack()
+        Button(root, text="next subject", width=15, command=self.next_subject).pack()
+
+        self.subject = 0
+
+        # data
         self.task_dirs = {}
-        self.current_type = None
+        self.condition = None
         self.current_object = None
         self.current_image_index = 0
         self.gaze_data = []
 
-        self.threshold = 125  # 停留时间阈值（毫秒）
+        self.threshold = 125
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
+        self.root.bind("<Left>", self.previous_image)
+        self.root.bind("<Right>", self.next_image)
+
+        self.time = time.time()
 
 
     def load_data(self):
-        # 选择数据文件夹
-        base_folder = filedialog.askdirectory(title="选择数据文件夹")
+        base_folder = filedialog.askdirectory(title="select COCO-Search18 dataset folder")
         if not base_folder:
             return
 
-
-        # 遍历任务类型和任务对象
         for task_type in os.listdir(base_folder):
             type_path = os.path.join(base_folder, task_type)
             if os.path.isdir(type_path):
@@ -59,51 +75,60 @@ class GazeVisualizer:
                         if images:
                             self.task_dirs[task_type][task_object] = images
 
-                # 创建任务类型按钮
-                Button(self.type_frame, text=task_type, command=lambda t=task_type: self.load_type(t)).pack()
+                # create condition button
+                Button(self.condition_frame, text=task_type, command=lambda t=task_type: self.load_type(t)).pack()
 
-        # 加载多个JSON文件
-        json_paths = filedialog.askopenfilenames(title="选择扫视轨迹JSON文件", filetypes=[("JSON Files", "*.json")])
+        # load multiple json files
+        json_paths = filedialog.askopenfilenames(title="select json files", filetypes=[("JSON Files", "*.json")])
         for json_path in json_paths:
             with open(json_path, 'r') as f:
                 self.gaze_data.extend(json.load(f))
-        self.label.config(text=f"已加载 {len(self.gaze_data)} 条扫视数据")
+        self.label.config(text=f"loaded {len(self.gaze_data)} items")
 
 
-    def load_type(self, task_type):
-        # 清空对象按钮
+    def load_type(self, condition):
+        # clear
         for widget in self.object_frame.winfo_children():
             widget.destroy()
 
-        self.current_type = task_type
+        self.condition = condition
         self.current_object = None
         self.current_image_index = 0
 
-        # 根据任务类型生成任务对象按钮
-        for task_object in self.task_dirs[task_type]:
-            Button(self.object_frame, text=task_object, command=lambda o=task_object: self.load_object(o)).pack()
+        # generate buttons
+        for task_object in self.task_dirs[condition]:
+            Button(self.object_frame, text=task_object, width = 12, command=lambda o=task_object: self.load_object(o)).pack()
 
-        self.label.config(text=f"已选择任务类型: {task_type}")
+        self.label.config(text=f"condition selected: {condition}")
 
 
     def load_object(self, task_object):
+        for widget in self.subject_frame.winfo_children():
+            widget.destroy()
+        # 10 subjects
+        for i in range(10):
+            Button(self.subject_frame, text=f"subject {i}", command=lambda o=i: self.load_subject(o)).pack()
+
         self.current_object = task_object
-        self.current_image_index = 0
+        self.label.config(text=f"selected task: {task_object} from {self.condition}")
+
+
+    def load_subject(self, subject):
+        self.subject = subject
         self.display_image_and_gaze()
+        self.label.config(text=f"selected subject: {subject} searching for {self.current_object} from {self.condition}")
 
 
     def display_image_and_gaze(self):
-        if not self.current_type or not self.current_object:
-            self.label.config(text="请先选择任务类型和对象")
+        if not self.condition or not self.current_object:
+            self.label.config(text="please select condition and task object first!")
             return
 
-        # 当前任务对象的图片列表
-        images = self.task_dirs[self.current_type][self.current_object]
+        images = self.task_dirs[self.condition][self.current_object]
         if not images:
-            self.label.config(text="任务无图片")
+            self.label.config(text="no images in current task object folder!")
             return
 
-        # 清空 Canvas 内容
         for widget in self.canvas.winfo_children():
             widget.destroy()
         self.canvas.delete("all")
@@ -111,82 +136,92 @@ class GazeVisualizer:
         image_path = images[self.current_image_index]
         img_name = os.path.basename(image_path)
 
-        # 查找对应的扫视数据
-        gaze = next((g for g in self.gaze_data if g["name"] == img_name), None)
+        gaze = next((g for g in self.gaze_data if (g["name"] == img_name and g["subject"] == self.subject)), None)
         if gaze:
             self.animate_gaze(image_path, gaze)
+            self.label.config(text=f"condition={self.condition},task object={self.current_object},image={img_name},subject={self.subject}")
         else:
-            self.label.config(text=f"未找到 {img_name} 的扫视数据")
+            self.label.config(text=f"no scanpaths found with subject {self.subject} searching for image: {img_name}")
 
 
     def animate_gaze(self, image_path, gaze):
-        # 提取坐标和停留时间
         x_coords = gaze["X"]
         y_coords = gaze["Y"]
         durations = gaze["T"]
 
-        # 清空 Canvas 内容
         for widget in self.canvas.winfo_children():
             widget.destroy()
         self.canvas.delete("all")
 
-
-        # 创建 Matplotlib 图
-        fig, ax = plt.subplots()
+        plt.close()
+        self.fig, self.ax = plt.subplots()
         img = plt.imread(image_path)
-        ax.imshow(img)
-        ax.axis("off")  # 隐藏坐标轴
-        points, = ax.plot([], [], 'ro', markersize=5)  # 注视点
-        line, = ax.plot([], [], 'b-', alpha=0.5)  # 连线
+        self.ax.imshow(img)
+        self.ax.axis("off")
 
+        points = self.ax.scatter([], [], c=[], s=40)
+        line, = self.ax.plot([], [], 'b-', alpha=0.5)
 
-        # 更新函数
         def update(frame):
-            if frame < len(x_coords):
-                line.set_data(x_coords[:frame + 1], y_coords[:frame + 1])
-                points.set_data(x_coords[:frame + 1], y_coords[:frame + 1])
-                # 标记停留时间低于阈值的注视点
-                if durations[frame] < self.threshold:
-                    ax.plot(x_coords[frame], y_coords[frame], 'yo', markersize=8)
+            # time.sleep(durations[frame] / 1000)
+            # print(f'interval: {round((time.time()-self.time)*1000)}, duration: {durations[frame]}')
+            # self.time = time.time()
+            # milestone = reach_milestone(durations, frame)
+
+            # if hasattr(self, "ani"):
+                # self.ani.interval = durations[frame]
+                # print(self.ani.event_source.interval)
+
+            line.set_data(x_coords[:frame + 1], y_coords[:frame + 1])         
+            current_colors = [
+                'yellow' if durations[i] < self.threshold else 'red'
+                for i in range(frame + 1)
+            ]
+            points.set_offsets(list(zip(x_coords[:frame + 1], y_coords[:frame + 1])))
+            points.set_color(current_colors)
 
             return points, line
+        
+        self.ani = FuncAnimation(self.fig, update, frames=len(x_coords), interval=200, blit=True)
+
+        self.canvas_widget = FigureCanvasTkAgg(self.fig, master=self.canvas)
+        self.canvas_widget.draw()
+        self.canvas_widget.get_tk_widget().pack(fill="both", expand=True)
 
 
-        # 创建动画
-        self.ani = FuncAnimation(fig, update, frames=len(x_coords), interval=200, blit=True)
-
-        # 嵌入到 Tkinter Canvas 中
-        canvas_widget = FigureCanvasTkAgg(fig, master=self.canvas)
-        canvas_widget.draw()
-        canvas_widget.get_tk_widget().pack(fill="both", expand=True)
-
-
-    def previous_image(self):
-        # 切换到上一张图片
-        if self.current_type and self.current_object:
-            images = self.task_dirs[self.current_type][self.current_object]
+    def previous_image(self, event=None):
+        if self.condition and self.current_object:
+            images = self.task_dirs[self.condition][self.current_object]
             self.current_image_index = (self.current_image_index - 1) % len(images)
             self.display_image_and_gaze()
 
 
-    def next_image(self):
-        # 切换到下一张图片
-        if self.current_type and self.current_object:
-            images = self.task_dirs[self.current_type][self.current_object]
+    def next_image(self, event=None):
+        if self.condition and self.current_object:
+            images = self.task_dirs[self.condition][self.current_object]
             self.current_image_index = (self.current_image_index + 1) % len(images)
             self.display_image_and_gaze()
 
 
+    def previous_subject(self, event=None):
+        if self.condition and self.current_object:
+            self.subject = (self.subject - 1) % SUBJECT_NUMBER
+            self.display_image_and_gaze()
+
+
+    def next_subject(self, event=None):
+        if self.condition and self.current_object:
+            self.subject = (self.subject + 1) % SUBJECT_NUMBER
+            self.display_image_and_gaze()
+
+
     def on_close(self):
-        # 停止动画
-        if hasattr(self, "ani"):
+        if hasattr(self, "ani") and self.ani.event_source is not None:
             self.ani.event_source.stop()
         
-        # 清理 Matplotlib 图形
         if hasattr(self, "canvas_widget"):
             self.canvas_widget.get_tk_widget().destroy()
         
-        # 退出 Tkinter 主循环
         self.root.quit()
         self.root.destroy()
 
@@ -194,7 +229,4 @@ class GazeVisualizer:
 if __name__ == "__main__":
     root = Tk()
     app = GazeVisualizer(root)
-    Button(root, text="加载数据", command=app.load_data).pack()
-    Button(root, text="上一张", command=app.previous_image).pack()
-    Button(root, text="下一张", command=app.next_image).pack()
     root.mainloop()
