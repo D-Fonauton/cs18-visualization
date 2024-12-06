@@ -1,13 +1,14 @@
 import os
 import json
-from tkinter import Tk, Label, Button, filedialog, Frame, Canvas
+from tkinter import Tk, Label, Button, filedialog, Frame, Canvas, BooleanVar, Checkbutton
 import matplotlib.pyplot as plt
+import matplotlib.patches as pc
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.animation import FuncAnimation
 import time
 
 from utils import reach_milestone
-from parameters import SUBJECT_NUMBER
+from parameters import SUBJECT_NUMBER, SUBJECT_INDEX
 
 class GazeVisualizer:
     def __init__(self, root: Tk):
@@ -15,30 +16,59 @@ class GazeVisualizer:
         self.root.title("Gaze Visualizer")
 
         # main frame
-        self.condition_frame = Frame(root)
+        self.main_frame = Frame(root)
+        self.main_frame.pack(side="top", expand=True, fill="both")
+
+        self.side_frame = Frame(root)
+        self.side_frame.pack(side="bottom",fill="both")
+
+        self.initial_frame = Frame(self.main_frame)
+        self.initial_frame.pack(side="left", fill="y")
+
+        self.condition_frame = Frame(self.main_frame)
         self.condition_frame.pack(side="left", fill="y")
 
-        self.object_frame = Frame(root)
+        self.object_frame = Frame(self.main_frame)
         self.object_frame.pack(side="left", fill="y")
 
-        self.subject_frame = Frame(root)
+        self.subject_frame = Frame(self.main_frame)
         self.subject_frame.pack(side="left", fill="y")
 
-        self.display_frame = Frame(root)
+        self.display_frame = Frame(self.main_frame)
         self.display_frame.pack(side="right", expand=True, fill="both")
 
-        self.label = Label(self.display_frame, text="请选择任务类型")
+        self.label = Label(self.display_frame, text="please select task type")
         self.label.pack()
 
         self.canvas = Canvas(self.display_frame)
         self.canvas.pack(fill="both", expand=True)
 
+        self.check_button_frame = Frame(self.side_frame)
+        self.check_button_frame.pack(side="left", fill="x", expand=True)
 
-        Button(root, text="load data", width=15, command=self.load_data).pack()
-        Button(root, text="previous image", width=15, command=self.previous_image).pack()
-        Button(root, text="next image", width=15, command=self.next_image).pack()
-        Button(root, text="previous subject", width=15, command=self.previous_subject).pack()
-        Button(root, text="next subject", width=15, command=self.next_subject).pack()
+        Button(self.initial_frame, text="load data", width=15, command=self.load_data).pack()
+        Button(self.initial_frame, text="previous image", width=15, command=self.previous_image).pack()
+        Button(self.initial_frame, text="next image", width=15, command=self.next_image).pack()
+        Button(self.initial_frame, text="previous subject", width=15, command=self.previous_subject).pack()
+        Button(self.initial_frame, text="next subject", width=15, command=self.next_subject).pack()
+
+        
+        self.deepgaze_status = BooleanVar(value=False)
+        self.deepgaze_button = Checkbutton(self.check_button_frame, text="DeepGaze Map", variable=self.deepgaze_status, command=self.toggle_deepgaze)
+        self.deepgaze_button.pack(side="left", fill="x", pady=10)
+
+        self.scanpaths_status = BooleanVar(value=False)
+        self.scanpaths_button = Checkbutton(self.check_button_frame, text="see all scanpaths", variable=self.scanpaths_status, command=self.toggle_scanpaths)
+        self.scanpaths_button.pack(side="left", fill="x", pady=10)
+
+        self.animation_status = BooleanVar(value=False)
+        self.animation_button = Checkbutton(self.check_button_frame, text="activate animation", variable=self.animation_status, command=self.toggle_animation)
+        self.animation_button.pack(side="left", fill="x", pady=10)
+
+        self.bbox_status = BooleanVar(value=False)
+        self.bbox_button = Checkbutton(self.check_button_frame, text="see bounding box", variable=self.bbox_status, command=self.toggle_bbox)
+        self.bbox_button.pack(side="left", fill="x", pady=10)
+        
 
         self.subject = 0
 
@@ -53,10 +83,34 @@ class GazeVisualizer:
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        self.root.bind("<Left>", self.previous_image)
-        self.root.bind("<Right>", self.next_image)
+        self.root.bind("<Up>", self.previous_image)
+        self.root.bind("<Down>", self.next_image)
+        self.root.bind("<Left>", self.previous_subject)
+        self.root.bind("<Right>", self.next_subject)
 
         self.time = time.time()
+
+
+    def toggle_deepgaze(self):
+        # print(self.deepgaze_status.get())
+        pass
+
+    def toggle_scanpaths(self):
+        # print(self.scanpaths_status.get())
+        if self.scanpaths_status.get():
+            self.animation_button.config(state="disabled")
+            self.animation_status.set(False)
+        else:
+            self.animation_button.config(state="normal")
+        self.display_image_and_gaze()
+
+    def toggle_animation(self):
+        # print(self.animation_status.get())
+        self.display_image_and_gaze()
+
+    def toggle_bbox(self):
+        # print(self.animation_status.get())
+        self.display_image_and_gaze()    
 
 
     def load_data(self):
@@ -105,18 +159,24 @@ class GazeVisualizer:
     def load_object(self, task_object):
         for widget in self.subject_frame.winfo_children():
             widget.destroy()
+
+        for widget in self.canvas.winfo_children():
+            widget.destroy()
+        self.canvas.delete("all")
+        
         # 10 subjects
-        for i in range(10):
-            Button(self.subject_frame, text=f"subject {i}", command=lambda o=i: self.load_subject(o)).pack()
+        for i in range(SUBJECT_NUMBER):
+            Button(self.subject_frame, text=f"subject {SUBJECT_INDEX[i]}", command=lambda o=i: self.load_subject(o)).pack()
 
         self.current_object = task_object
+        self.current_image_index = 0
         self.label.config(text=f"selected task: {task_object} from {self.condition}")
 
 
     def load_subject(self, subject):
         self.subject = subject
         self.display_image_and_gaze()
-        self.label.config(text=f"selected subject: {subject} searching for {self.current_object} from {self.condition}")
+        # self.label.config(text=f"selected subject: {SUBJECT_INDEX[subject]} searching for {self.current_object} from {self.condition}")
 
 
     def display_image_and_gaze(self):
@@ -136,12 +196,63 @@ class GazeVisualizer:
         image_path = images[self.current_image_index]
         img_name = os.path.basename(image_path)
 
-        gaze = next((g for g in self.gaze_data if (g["name"] == img_name and g["subject"] == self.subject)), None)
-        if gaze:
-            self.animate_gaze(image_path, gaze)
-            self.label.config(text=f"condition={self.condition},task object={self.current_object},image={img_name},subject={self.subject}")
+        gazes = [g for g in self.gaze_data if (g["name"] == img_name and g["task"] == self.current_object)]
+        gaze = [g for g in gazes if (g["subject"] == SUBJECT_INDEX[self.subject])]
+        gaze = None if gaze == [None] else gaze
+
+        if self.scanpaths_status.get():
+            self.plot_gazes(image_path, gazes)
+            correct = all([c["correct"] for c in gazes])
+            self.label.config(text=f"condition={self.condition},task object={self.current_object},image={img_name},subject=all, all_correct: {correct}")
+        elif gaze:
+            correct = gaze[0]["correct"]
+            correct_prob = sum([c["correct"] for c in gazes]) / SUBJECT_NUMBER
+            self.label.config(text=f"condition={self.condition},task object={self.current_object},image={img_name},subject={SUBJECT_INDEX[self.subject]}, correct: {correct}({correct_prob})")
+            if self.animation_status.get():
+                self.animate_gaze(image_path, gaze[0])
+            else:
+                self.plot_gazes(image_path, gaze)
         else:
-            self.label.config(text=f"no scanpaths found with subject {self.subject} searching for image: {img_name}")
+            self.label.config(text=f"no scanpaths found with subject {SUBJECT_INDEX[self.subject]} searching for image: {img_name}")
+
+
+    def plot_gazes(self, image_path, gazes):
+        if hasattr(self, "ani") and self.ani.event_source is not None:
+            self.ani.event_source.stop()
+
+        for widget in self.canvas.winfo_children():
+            widget.destroy()
+        self.canvas.delete("all")
+        plt.close()
+        self.fig, self.ax = plt.subplots()
+        img = plt.imread(image_path)
+        self.ax.imshow(img)
+        self.ax.axis("off")
+
+        for gaze in gazes:
+
+            x_coords = gaze["X"]
+            y_coords = gaze["Y"]
+            durations = gaze["T"]
+
+            points = self.ax.scatter(x_coords, y_coords, c=[], s=40)
+            current_colors = ['yellow' if durations[i] < self.threshold else 'red' for i in range(len(x_coords))]
+            points.set_color(current_colors)
+
+
+            line, = self.ax.plot(x_coords, y_coords, 'b-', alpha=0.5)
+
+        if self.bbox_status.get():
+            bbox = gazes[0]["bbox"]
+            bbox_x = bbox[0]
+            bbox_y = bbox[1]
+            self.ax.add_patch(pc.Rectangle((bbox_x, bbox_y), bbox[2], bbox[3], linewidth=2, edgecolor='blue', facecolor='none'))
+
+        self.canvas_widget = FigureCanvasTkAgg(self.fig, master=self.canvas)
+        self.canvas_widget.draw()
+        self.canvas_widget.get_tk_widget().pack(fill="both", expand=True)
+
+
 
 
     def animate_gaze(self, image_path, gaze):
@@ -161,6 +272,12 @@ class GazeVisualizer:
 
         points = self.ax.scatter([], [], c=[], s=40)
         line, = self.ax.plot([], [], 'b-', alpha=0.5)
+
+        if self.bbox_status.get():
+            bbox = gaze["bbox"]
+            bbox_x = bbox[0]
+            bbox_y = bbox[1]
+            self.ax.add_patch(pc.Rectangle((bbox_x, bbox_y), bbox[2], bbox[3], linewidth=2, edgecolor='blue', facecolor='none'))
 
         def update(frame):
             # time.sleep(durations[frame] / 1000)
