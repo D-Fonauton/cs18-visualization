@@ -3,7 +3,7 @@ from tqdm import tqdm
 import math
 
 # local
-from utils import Metric, Levenshtein_distance, Needleman_Wunsch, Scanmatch, Multimatch
+from utils import Metric, Levenshtein_distance, Needleman_Wunsch, Scanmatch, Multimatch, Scores
 from src import Fixation
 
 # subject performances across images
@@ -48,27 +48,6 @@ def calculate_similarity_subjects(jsonfile: Fixation, split, cfg, metric_name):
     return matrix
 
 
-class Scores:
-    def __init__(self):
-        self.category_index = []
-        self.similarity_score = []
-        
-    def append(self, index, score):
-        self.category_index.append(index)
-        self.similarity_score.append(score)
-
-    def get_all_score(self):
-        return np.array(self.similarity_score)
-    
-    def get_category_score(self, index):
-        category_index = np.array(self.category_index)
-        similarity_score = np.array(self.similarity_score)
-        if not index in category_index:
-            return []
-        else:
-            return similarity_score[np.where(category_index == index)[0]]
-
-
 # image across subjects
 def calculate_similarity_images(jsonfile: Fixation, split, cfg, metric_name):
     if not issubclass(metric_name, Metric):
@@ -86,7 +65,7 @@ def calculate_similarity_images(jsonfile: Fixation, split, cfg, metric_name):
             fixations = [jsonfile.fixations(trial, subject) for subject in cfg.subjects]
             comb_rank = 0
             for index1 in range(subject_number):
-                for index2 in range(index1):
+                for index2 in range(index1 + 1,subject_number):
                     fixations1 = fixations[index1]
                     fixations2 = fixations[index2]
 

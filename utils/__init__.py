@@ -7,3 +7,4 @@ from .scanpath_simularity_metrics.scanmatch import Scanmatch
 from .scanpath_simularity_metrics.multimatch import Multimatch
 
 from .histogram.gui import Histogram
+from .histogram.scores import Scores

@@ -25,7 +25,7 @@ def main(cfg: DictConfig):
         with open(f'{func[index].__name__}.pkl', 'wb') as f:
             pickle.dump(result, f)
 
-    print(result)
+    # print(result)
     
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
@@ -49,5 +49,6 @@ def show_hist():
 
 if __name__ == "__main__":
     # visualizer_app() 
+    main()
     show_hist()
     # test()

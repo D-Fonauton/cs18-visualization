@@ -1,24 +1,33 @@
 from tkinter import Tk, Label, Frame, Canvas
 import pickle
-from tkinter import IntVar, Radiobutton, Button
+from tkinter import IntVar, BooleanVar, Radiobutton, Checkbutton
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from math import comb
 import numpy as np
 
 
+# local
+from .scores import Scores
+
 class HistoFrame:
     def __init__(self, root):
-        self.side_frame = Frame(root)
-        self.side_frame.pack(side="left")
+        self.main_frame = Frame(root)
+        self.main_frame.pack(side="top", expand=True, fill="both")
 
-        self.subject1_frame = Frame(self.side_frame)
+        self.side_frame = Frame(root)
+        self.side_frame.pack(side="bottom", expand=True, fill="both")
+        
+        self.select_frame = Frame(self.main_frame)
+        self.select_frame.pack(side="left")
+
+        self.subject1_frame = Frame(self.select_frame)
         self.subject1_frame.pack(side="left")
 
-        self.subject2_frame = Frame(self.side_frame)
+        self.subject2_frame = Frame(self.select_frame)
         self.subject2_frame.pack(side="left")
 
-        self.plot_frame = Frame(root)
+        self.plot_frame = Frame(self.main_frame)
         self.plot_frame.pack(side="right", expand=True, fill="both")
 
         self.label = Label(self.plot_frame, text="histogram plot")
@@ -34,6 +43,8 @@ class Histogram:
         
         with open(file, "rb") as f:
             self.files = pickle.load(f)
+        
+        self.current_file = Scores()
         self.current_file = self.files[0]
         self.subject_number = 10
 
@@ -84,7 +95,11 @@ class Histogram:
         for rb in self.rb2:
             rb.pack(anchor="w")
         """
-        
+
+        self.overall_status = BooleanVar(value=False)
+        self.overall_button = Checkbutton(self.frame.side_frame, text="overall", variable=self.overall_status, command=self.toggle_overall)
+        self.overall_button.pack(side="left", fill="x", pady=10)
+
         # rb2[self.selected_subject1.get()].config(state="disabled")
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -110,6 +125,15 @@ class Histogram:
             subject1, subject2 = subject2, subject1
         self.current_file = self.files[combination_rank(self.subject_number, 2, (subject1, subject2))]
         self.plot()    
+
+
+    def toggle_overall(self):
+        if self.overall_status.get():
+            self.current_file = Scores()
+            for index in range(len(self.files)):
+                i, s = self.files[index].get_all()
+                self.current_file.concatenate(i, s)
+            self.plot()
 
 
     def plot(self):
