@@ -134,6 +134,8 @@ class Histogram:
                 i, s = self.files[index].get_all()
                 self.current_file.concatenate(i, s)
             self.plot()
+        else:
+            self.on_select_subject()
 
 
     def plot(self):

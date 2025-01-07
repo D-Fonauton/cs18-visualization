@@ -49,6 +49,6 @@ def show_hist():
 
 if __name__ == "__main__":
     # visualizer_app() 
-    main()
+    # main()
     show_hist()
     # test()
