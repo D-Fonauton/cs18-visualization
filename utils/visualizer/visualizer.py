@@ -11,7 +11,7 @@ import hydra
 from omegaconf import DictConfig
 
 # local
-from .src import COCOSearch18
+from src import COCOSearch18
 
 
 class VisualizerFrame:
@@ -155,19 +155,22 @@ class Visualizer:
 
 
     def on_select_condition(self):
+        self.current_image_index = 0
         self.display_image_and_gaze()
-        print(f"Selected option: {self.selected_condition.get()}")
+        # print(f"Selected option: {self.selected_condition.get()}")
 
 
     def on_select_task(self):
+        self.current_image_index = 0
         self.display_image_and_gaze()
-        print(f"Selected option: {self.selected_task.get()}")
+        # print(f"Selected option: {self.selected_task.get()}")
 
 
     def on_select_subject(self):
+        self.current_image_index = 0
         self.display_image_and_gaze()
-        print(f"Selected option: {self.selected_subject.get()}")
-        print(type(self.selected_subject.get()))
+        # print(f"Selected option: {self.selected_subject.get()}")
+        # print(type(self.selected_subject.get()))
 
 
     def display_image_and_gaze(self):
@@ -289,7 +292,7 @@ class Visualizer:
         
         self.ani = FuncAnimation(self.fig, update, frames=len(x_coords), interval=200, blit=True)
 
-        self.canvas_widget = FigureCanvasTkAgg(self.fig, master=self.canvas)
+        self.canvas_widget = FigureCanvasTkAgg(self.fig, master=self.frame.canvas)
         self.canvas_widget.draw()
         self.canvas_widget.get_tk_widget().pack(fill="both", expand=True)
 
@@ -325,14 +328,3 @@ class Visualizer:
         
         self.root.quit()
         self.root.destroy()
-
-
-@hydra.main(version_base=None, config_path="../config", config_name="config")
-def debug_visualizer(cfg: DictConfig):
-    root = Tk()
-    app = Visualizer(root, cfg.dataset)
-    root.mainloop()
-
-
-if __name__ == "__main__":
-    debug_visualizer()

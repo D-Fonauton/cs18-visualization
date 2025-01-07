@@ -1,19 +1,26 @@
-import tkinter as tk
+import matplotlib.pyplot as plt
+import numpy as np
 
-def on_select():
-    print(f"Selected option: {selected_option.get()}")
+# 示例数据
+np.random.seed(0)
+data = np.random.normal(loc=0.5, scale=0.1, size=1000)
 
-# 创建主窗口
-root = tk.Tk()
-root.title("Radiobutton Example")
+# 绘制直方图
+plt.hist(data, bins=30, color='black', edgecolor='black', alpha=0.7)
 
-# 定义一个变量，绑定到所有 Radiobutton
-selected_option = tk.StringVar(value="Option 1")  # 设置默认选项
+# 添加花括号标注
+x_start = 0.3
+x_end = 0.5
+y_start = 50  # 在y轴上的起始位置，可以根据需要调整
+y_end = y_start+2
 
-# 创建单选按钮
-options = ["Option 1", "Option 2", "Option 3"]
-for option in options:
-    tk.Radiobutton(root, text=option, variable=selected_option, value=option, command=on_select).pack(anchor="w")
+# 绘制花括号，使用plot方法绘制线条
+plt.plot([x_start, x_start], [y_start, y_end], color="black", lw=2)
+plt.plot([x_end, x_end], [y_start, y_end], color="black", lw=2)
+plt.plot([x_start, x_end], [y_end, y_end], color="black", lw=2)
 
-# 运行主循环
-root.mainloop()
+# 添加文本标签
+plt.text((x_start + x_end) / 2, y_end + 10, 'class A', horizontalalignment='center', fontsize=12)
+
+# 显示图像
+plt.show()

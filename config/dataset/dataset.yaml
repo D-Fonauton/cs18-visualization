@@ -36,6 +36,20 @@ categories:
   - "toilet"
   - "tv"
 
+difficult_categories:
+  - "cup"
+  - "oven"
+  - "knife"
+  - "microwave"
+  - "car"
+  - "chair"
+  - "potted plant"
+  - "bottle"
+  - "bowl"
+
+specific_categories:
+  - "bowl"  
+
 json:
   - coco_search18_fixations_TA_trainval.json
   - coco_search18_fixations_TP_train_split1.json
