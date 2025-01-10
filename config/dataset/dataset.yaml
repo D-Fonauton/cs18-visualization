@@ -15,6 +15,10 @@ conditions:
   - "TP"
   - "TA"
 
+conditions_in_json:
+  - "present"
+  - "absent"
+
 # CCS18 categories
 categories:
   - "bottle"

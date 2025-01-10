@@ -9,6 +9,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.animation import FuncAnimation
 import hydra
 from omegaconf import DictConfig
+import numpy as np
 
 # local
 from src import COCOSearch18
@@ -109,20 +110,39 @@ class Visualizer:
 
         # checkbutton frame button init
         self.deepgaze_status = BooleanVar(value=False)
-        self.deepgaze_button = Checkbutton(self.frame.check_button_frame, text="DeepGaze Map", variable=self.deepgaze_status, command=self.toggle_deepgaze)
+        self.deepgaze_button = Checkbutton(self.frame.check_button_frame, 
+                                           text="DeepGaze Map", 
+                                           variable=self.deepgaze_status, 
+                                           command=self.toggle_deepgaze)
         self.deepgaze_button.pack(side="left", fill="x", pady=10)
 
         self.scanpaths_status = BooleanVar(value=False)
-        self.scanpaths_button = Checkbutton(self.frame.check_button_frame, text="see all scanpaths", variable=self.scanpaths_status, command=self.toggle_scanpaths)
+        self.scanpaths_button = Checkbutton(self.frame.check_button_frame, 
+                                            text="see all scanpaths", 
+                                            variable=self.scanpaths_status, 
+                                            command=self.toggle_scanpaths)
         self.scanpaths_button.pack(side="left", fill="x", pady=10)
 
         self.animation_status = BooleanVar(value=False)
-        self.animation_button = Checkbutton(self.frame.check_button_frame, text="activate animation", variable=self.animation_status, command=self.toggle_animation)
+        self.animation_button = Checkbutton(self.frame.check_button_frame, 
+                                            text="activate animation", 
+                                            variable=self.animation_status, 
+                                            command=self.toggle_animation)
         self.animation_button.pack(side="left", fill="x", pady=10)
 
         self.bbox_status = BooleanVar(value=False)
-        self.bbox_button = Checkbutton(self.frame.check_button_frame, text="see bounding box", variable=self.bbox_status, command=self.toggle_bbox)
+        self.bbox_button = Checkbutton(self.frame.check_button_frame, 
+                                       text="see bounding box", 
+                                       variable=self.bbox_status, 
+                                       command=self.toggle_bbox)
         self.bbox_button.pack(side="left", fill="x", pady=10)
+
+        self.accuracy_histogram_status = BooleanVar(value=False)
+        self.accuracy_histogram_button = Checkbutton(self.frame.check_button_frame, 
+                                                     text="accuracy histogram", 
+                                                     variable=self.accuracy_histogram_status, 
+                                                     command=self.toggle_accuracy_histogram)
+        self.accuracy_histogram_button.pack(side="left", fill="x", pady=10)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -154,23 +174,87 @@ class Visualizer:
         self.display_image_and_gaze()    
 
 
+    def switch_plot_mode(self):
+        if self.accuracy_histogram_status.get():
+            self.plot()
+        else:
+            self.display_image_and_gaze()
+
+
+    def toggle_accuracy_histogram(self):
+        self.switch_plot_mode()
+
+
     def on_select_condition(self):
         self.current_image_index = 0
-        self.display_image_and_gaze()
+        self.switch_plot_mode()
         # print(f"Selected option: {self.selected_condition.get()}")
 
 
     def on_select_task(self):
         self.current_image_index = 0
-        self.display_image_and_gaze()
+        self.switch_plot_mode()
         # print(f"Selected option: {self.selected_task.get()}")
 
 
     def on_select_subject(self):
         self.current_image_index = 0
-        self.display_image_and_gaze()
+        self.switch_plot_mode()
         # print(f"Selected option: {self.selected_subject.get()}")
         # print(type(self.selected_subject.get()))
+
+
+    def plot(self):
+        for widget in self.frame.canvas.winfo_children():
+            widget.destroy()
+        self.frame.canvas.delete("all")
+        plt.close()
+
+        self.fig, self.ax = plt.subplots()
+
+        def cal_accuracy():
+            images = self.dataset.json.condition_task_images(self.selected_condition.get(), self.selected_task.get())
+            accuracy = []
+            for image in images:
+                img_name = os.path.basename(image)
+                gazes = self.dataset.json.fixations((self.selected_condition.get(), self.selected_task.get(), img_name), mode='all')
+                accuracy.append(sum([c["correct"] for c in gazes]) / self.cfg.subject_number)
+            return accuracy
+
+
+        # data = self.current_file.get_all_score()
+        data = cal_accuracy()
+        bins = np.arange(-0.05, 1.15, 0.1)
+        x = range(11)
+        hist, _ = np.histogram(data, bins)
+        hist = hist / hist.sum()
+
+        bars = self.ax.bar(x, hist)
+
+        self.ax.set_xticks(x)
+        self.ax.set_xticklabels([str(n) for n in np.array(x)/10])
+        self.ax.set_xlabel('accuracy')
+
+        self.ax.set_ylim(0,1)
+        self.ax.set_ylabel('frequency')
+        
+        for bar in bars:
+            height = bar.get_height()
+            self.ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                height,
+                f'{height:.2f}',
+                ha='center',
+                va='bottom',
+                fontsize=10
+            )
+
+
+        self.frame.label.config(text="Normal Distribution")
+
+        self.canvas_widget = FigureCanvasTkAgg(self.fig, master=self.frame.canvas)
+        self.canvas_widget.draw()
+        self.canvas_widget.get_tk_widget().pack(fill="both", expand=True)
 
 
     def display_image_and_gaze(self):
@@ -186,25 +270,22 @@ class Visualizer:
         image_path = images[self.current_image_index]
         img_name = os.path.basename(image_path)
 
-        condition_str = "present" if self.selected_condition.get() == "TP" else "absent"
-        gazes = [g for g in self.dataset.json if (g["condition"] == condition_str and g["task"] == self.selected_task.get() and g["name"] == img_name)]
+        gazes = self.dataset.json.fixations((self.selected_condition.get(), self.selected_task.get(), img_name), mode='all')
 
-
-        gaze = [g for g in gazes if (g["subject"] == self.selected_subject.get())]
-        gaze = None if gaze == [None] else gaze
+        gaze = None if gazes is None else [g for g in gazes if (g["subject"] == self.selected_subject.get())][0]
 
         if self.scanpaths_status.get():
             self.plot_gazes(image_path, gazes)
             correct = all([c["correct"] for c in gazes])
             self.frame.label.config(text=f"condition={self.selected_condition.get()},task object={self.selected_task.get()},image={img_name},subject=all, all_correct: {correct}")
         elif gaze:
-            correct = gaze[0]["correct"]
+            correct = gaze["correct"]
             correct_prob = sum([c["correct"] for c in gazes]) / self.cfg.subject_number
             self.frame.label.config(text=f"condition={self.selected_condition.get()},task object={self.selected_task.get()},image={img_name},subject={self.selected_subject.get()}, correct: {correct}({correct_prob})")
             if self.animation_status.get():
-                self.animate_gaze(image_path, gaze[0])
+                self.animate_gaze(image_path, [gaze])
             else:
-                self.plot_gazes(image_path, gaze)
+                self.plot_gazes(image_path, [gaze])
         else:
             self.frame.label.config(text=f"no scanpaths found with subject {self.selected_subject.get()} searching for image: {img_name}")
 

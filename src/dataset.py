@@ -16,6 +16,15 @@ class Fixation:
     def __len__(self):
         return len(self.jsonfile)
 
+    def correct_condition(self, condition: str):
+        if condition == "TP":
+            return 'present'
+        elif condition == "TA":
+            return 'absent'
+        else:
+            return condition
+
+
     def image_names(self):
         return np.unique([data["name"] for data in self.jsonfile])
     
@@ -28,22 +37,34 @@ class Fixation:
     def ta_image_names(self):
         return np.unique([data["name"] for data in self.jsonfile if data["condition"] == "absent"])
     
-    def fixations(self, trial, subject, task_filters=None):
+    def fixations(self, trial, subject=None, task_filters=None, mode='default'):
         condition, task, image_name = trial
+
+        condition = self.correct_condition(condition)
         
         if task_filters is not None:
             if task not in task_filters:
                 return None
-        fixations = [data for data in self.jsonfile if data["condition"] == condition and data["task"] == task and data["name"] == image_name and data["subject"] == subject]
+        if subject is None:
+            fixations = [data for data in self.jsonfile if data["condition"] == condition and data["task"] == task and data["name"] == image_name]
+        else:
+            fixations = [data for data in self.jsonfile if data["condition"] == condition and data["task"] == task and data["name"] == image_name and data["subject"] == subject]
         if fixations:
-            fixations = fixations[0]
-            return np.transpose([fixations["X"], fixations["Y"], fixations["T"]])
+            if mode == 'default':
+            # fixations = fixations[0]
+                return [np.transpose([fixation["X"], fixation["Y"], fixation["T"]]) for fixation in fixations]
+            elif mode == 'all':
+                return fixations
         else: 
             return None
     
 
     def task_images(self, task):
         return np.unique([data["name"] for data in self.jsonfile if data["task"] == task])
+    
+    def condition_task_images(self, condition, task):
+        condition = self.correct_condition(condition)
+        return np.unique([data["name"] for data in self.jsonfile if data["task"] == task and data["condition"] == condition])
 
     def trials(self):
         return np.unique([[data["condition"], data["task"], data["name"]] for data in self.jsonfile], axis=0)
