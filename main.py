@@ -12,7 +12,13 @@ from calc_similarity import calculate_similarity_images, calculate_similarity_su
 @hydra.main(version_base=None, config_path="config", config_name="config")
 def test(cfg: DictConfig):
     dataset = COCOSearch18(cfg.dataset)
-    print(Levenshtein_distance((4,4),cfg.dataset,[[100,100,1],[100,200,1],[800,800,1]],[[100,100,1],[100,200,1],[1600,800,1]]).similarity())
+    # ABCDE: [[1,1,1],[500,1,1],[1000,1,1],[1500,1,1],[1,500,1]]
+    # DEABC: [[1500,1,1],[1,500,1],[1,1,1],[500,1,1],[1000,1,1]]
+    # DEBCA: [[1500,1,1],[1,500,1],[500,1,1],[1000,1,1],[1,1,1]]
+    func = Scanmatch
+    print(func((4,4),cfg.dataset,[[1,1,1],[500,1,1],[1000,1,1]],[[1,1,1],[500,1,1],[1000,1,1],[1500,1,1],[1,500,1]]).similarity())
+    print(func((4,4),cfg.dataset,[[1,1,1],[500,1,1],[1000,1,1]],[[1500,1,1],[1,500,1],[1,1,1],[500,1,1],[1000,1,1]]).similarity())
+    print(func((4,4),cfg.dataset,[[1,1,1],[500,1,1],[1000,1,1]],[[1500,1,1],[1,500,1],[500,1,1],[1000,1,1],[1,1,1]]).similarity())
 
 
 @hydra.main(version_base=None, config_path="config", config_name="config")
@@ -48,7 +54,7 @@ def show_hist():
 
 
 if __name__ == "__main__":
-    visualizer_app() 
+    # visualizer_app() 
     # main()
     # show_hist()
-    # test()
+    test()
